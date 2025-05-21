@@ -2,6 +2,7 @@ import { Schema, model, Document, Types } from 'mongoose';
 
 export interface IAgenda extends Document {
   userId: Types.ObjectId;
+  tenantId: string;
   title: string;
   description?: string;
   date: Date;
@@ -13,6 +14,7 @@ const agendaSchema = new Schema<IAgenda>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     title: { type: String, required: true },
+    tenantId: { type: String, required: true },
     description: { type: String },
     date: { type: Date, required: true },
   },

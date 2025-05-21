@@ -4,6 +4,7 @@ import User from '../models/user.model';
 
 export interface AuthenticatedRequest extends Request {
   user?: any; // ou `IUser` se você quiser importar
+  tenantId?: any;
 }
 
 export const authenticate = async (req: Request, res: Response, next: NextFunction):Promise<any> => {

@@ -30,9 +30,12 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       password: hashedPassword,
       tenantId,
       stripeCustomerId: stripeCustomer.id, // Salvando ID do cliente Stripe
+      subscription: 'free',
+      subscriptionStatus: 'active',
+      subscriptionStart: new Date(),
     });
 
-    const token = jwt.sign({ id: user._id, tenantId: user.tenantId }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user._id, tenantId: user.tenantId }, JWT_SECRET, { expiresIn: '1h' });
 
     return res.status(201).json({ token });
   } catch (error) {
@@ -50,7 +53,14 @@ export const login = async (req: Request, res: Response): Promise<any> => {
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return res.status(401).json({ message: 'Senha inválida' });
 
-  const token = jwt.sign({ id: user._id, tenantId: user.tenantId }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ id: user._id, tenantId: user.tenantId }, JWT_SECRET, { expiresIn: '1h' });
 
-  res.json({ token });
+  res.json({
+    token,
+    subscription: user.subscription || 'gratuito',
+    subscriptionStatus: user.subscriptionStatus || 'inativo',
+    tenantId: user.tenantId,
+    subscriptionStart: user.subscriptionStart
+  });
 };
+

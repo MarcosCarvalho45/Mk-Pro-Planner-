@@ -7,6 +7,7 @@ export interface IUser extends Document {
   password: string;
   tenantId: string;
   subscription: 'free' | 'start' | 'platinum';
+  subscriptionStart:Date,
   subscriptionStatus?: 'active' | 'canceled' | 'past_due' | 'unpaid' | 'incomplete'; // status da assinatura Stripe
   subscriptionCurrentPeriodEnd?: Date; // fim da validade da assinatura
   stripeCustomerId?: string; // id do cliente no Stripe
@@ -20,8 +21,9 @@ const UserSchema: Schema = new Schema({
   password: { type: String, required: true },
   tenantId: { type: String, required: true },
   subscription: { type: String, enum: ['free', 'start', 'platinum'], default: 'free' },
-  subscriptionStatus: { type: String, enum: ['active', 'canceled', 'past_due', 'unpaid', 'incomplete'] },
+  subscriptionStatus: { type: String, enum: ['active', 'canceled', 'past_due', 'unpaid', 'incomplete'], default: 'active'  },
   subscriptionCurrentPeriodEnd: { type: Date },
+  subscriptionStart: { type: Date },
   stripeCustomerId: { type: String },
   stripeSubscriptionId: { type: String },
 });
