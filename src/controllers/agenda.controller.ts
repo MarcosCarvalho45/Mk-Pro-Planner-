@@ -4,13 +4,35 @@ import { gerarAgendaComIA } from '../services/ai.service';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware'; 
 import User from '../models/user.model';
 
+export const getAgendas = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const userId = req.user?._id;
+    const tenantId = req.user?.tenantId || req.tenantId;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Usuário não autenticado' });
+    }
+
+    // Busca todas as agendas do usuário + tenant
+    const agendas = await Agenda.find({ userId, tenantId }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      agendas, // retorna o array dentro do objeto
+      message: 'Agendas carregadas com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro ao buscar agendas:', error);
+    return res.status(500).json({ message: 'Erro interno ao buscar agendas' });
+  }
+};
+
+
 // Cria agenda com geração via IA
 export const createAgendaViaAI = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
   try {
     const userId = req.user?._id;
-      // Exemplo: tenantId vindo do usuário ou do request
     const tenantId = req.user?.tenantId || req.tenantId;
-    
+
     if (!userId) {
       return res.status(401).json({ message: 'Usuário não autenticado' });
     }
@@ -20,66 +42,51 @@ export const createAgendaViaAI = async (req: AuthenticatedRequest, res: Response
       return res.status(400).json({ message: 'Prompt é obrigatório' });
     }
 
-    // Busca o usuário para saber o plano
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
 
-    // Conta quantas agendas o usuário já possui
+    // Limites de agendas podem ser controlados por plano se quiser
+    // Aqui só um exemplo simples:
     const totalAgendas = await Agenda.countDocuments({ userId });
-
-    // Define limite de agendas por plano
     let maxAgendas = 0;
-    switch(user.subscription) {
+    switch (user.subscription) {
       case 'free':
-        maxAgendas = 1;
+        maxAgendas = Infinity;
         break;
       case 'start':
         maxAgendas = 5;
         break;
       case 'platinum':
-        maxAgendas = Infinity; // ilimitado
+        maxAgendas = Infinity;
         break;
       default:
         maxAgendas = 0;
     }
 
-    // Aqui definimos uma estimativa de quantas agendas a IA vai gerar
-    // Se sabe a quantidade exata, ajuste esse número conforme necessário
-    const agendasASeremGeradas = 1;
-
-    // Verifica se ao adicionar as novas agendas ultrapassa o limite
-    if (totalAgendas + agendasASeremGeradas > maxAgendas) {
-      const limiteMsg = maxAgendas === Infinity ? 'ilimitado' : maxAgendas.toString();
-      return res.status(403).json({ message: `Limite de agendas excedido para seu plano (${user.subscription}). Você pode criar até ${limiteMsg} agendas.` });
+    if (totalAgendas >= maxAgendas) {
+      return res.status(403).json({ message: `Limite de agendas excedido para seu plano (${user.subscription}).` });
     }
 
-    // Só chama a IA se o usuário ainda estiver dentro do limite
-    const agendaItems = await gerarAgendaComIA(prompt);
+    // Gera a agenda via IA
+    const agendaGerada = await gerarAgendaComIA(prompt);
 
-    if (!Array.isArray(agendaItems)) {
-      return res.status(500).json({ message: 'Formato inválido, esperado array de agendas' });
+    if (!agendaGerada || !Array.isArray(agendaGerada.tarefas)) {
+      return res.status(500).json({ message: 'Formato inválido recebido da IA' });
     }
 
-    // Se a IA gerar mais itens do que o limite permite, corte o excesso
-    const allowedToCreate = maxAgendas === Infinity ? agendaItems.length : Math.min(agendaItems.length, maxAgendas - totalAgendas);
-    const agendaItemsFiltrados = agendaItems.slice(0, allowedToCreate);
+    // Cria o documento completo com nomeAgenda e tarefas
+    const novaAgenda = new Agenda({
+      userId,
+      tenantId,
+      nomeAgenda: agendaGerada.nomeAgenda,
+      tarefas: agendaGerada.tarefas,
+    });
 
-    const agendasCriadas: IAgenda[] = [];
-    for (const item of agendaItemsFiltrados) {
-      const novaAgenda = new Agenda({
-        userId,
-        tenantId,
-        title: item.titulo,
-        description: item.descricao,
-        date: new Date(`${item.data}T${item.hora}:00`),
-      });
-      const salva = await novaAgenda.save();
-      agendasCriadas.push(salva);
-    }
+    const salva = await novaAgenda.save();
 
-    return res.status(201).json({ message: 'Agenda criada com sucesso', agendas: agendasCriadas });
+    return res.status(201).json({ message: 'Agenda criada com sucesso', agenda: salva });
 
   } catch (error) {
     console.error('Erro ao criar agenda via IA:', error);
