@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes';
 import agendaRoutes from './routes/agenda.routes';
 import stripeRoutes from './routes/stripe.routes';
 import { stripeWebhook } from './controllers/stripeWebhook.controller';
+import userRoutes from './routes/userRoutes';
 
 // configuracoes
 dotenv.config();
@@ -25,6 +26,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
 app.use('/auth', authRoutes);
 app.use('/agenda', agendaRoutes);
 app.use('/', stripeRoutes);
+app.use('/user', userRoutes);
 
 // conecxao com DB
 connectDatabase();

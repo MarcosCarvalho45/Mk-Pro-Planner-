@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/user.model';
 import { criarCliente } from '../services/stripe.service';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
@@ -37,7 +38,19 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 
     const token = jwt.sign({ id: user._id, tenantId: user.tenantId }, JWT_SECRET, { expiresIn: '1h' });
 
-    return res.status(201).json({ token });
+    return res.status(201).json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        tenantId: user.tenantId,
+        subscription: user.subscription,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionStart: user.subscriptionStart
+      }
+    });
   } catch (error) {
     console.error('Erro ao registrar usuário:', error);
     return res.status(500).json({ message: 'Erro ao criar conta' });
@@ -54,13 +67,19 @@ export const login = async (req: Request, res: Response): Promise<any> => {
   if (!valid) return res.status(401).json({ message: 'Senha inválida' });
 
   const token = jwt.sign({ id: user._id, tenantId: user.tenantId }, JWT_SECRET, { expiresIn: '1h' });
-
+  
   res.json({
     token,
-    subscription: user.subscription || 'gratuito',
-    subscriptionStatus: user.subscriptionStatus || 'inativo',
-    tenantId: user.tenantId,
-    subscriptionStart: user.subscriptionStart
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      tenantId: user.tenantId,
+      subscription: user.subscription || 'gratuito',
+      subscriptionStatus: user.subscriptionStatus || 'inativo',
+      subscriptionStart: user.subscriptionStart
+    }
   });
-};
 
+};

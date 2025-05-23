@@ -1,9 +1,10 @@
-import { Response } from 'express';
-import { Agenda, IAgenda } from '../models/agenda.model';
-import { gerarAgendaComIA } from '../services/ai.service'; 
-import { AuthenticatedRequest } from '../middlewares/auth.middleware'; 
+import { Request, Response } from 'express';
+import { Agenda } from '../models/agenda.model';
+import { gerarAgendaComIA } from '../services/ai.service';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import User from '../models/user.model';
 
+// GET agendas
 export const getAgendas = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
   try {
     const userId = req.user?._id;
@@ -13,11 +14,10 @@ export const getAgendas = async (req: AuthenticatedRequest, res: Response): Prom
       return res.status(401).json({ message: 'Usuário não autenticado' });
     }
 
-    // Busca todas as agendas do usuário + tenant
     const agendas = await Agenda.find({ userId, tenantId }).sort({ createdAt: -1 });
 
     return res.status(200).json({
-      agendas, // retorna o array dentro do objeto
+      agendas,
       message: 'Agendas carregadas com sucesso'
     });
   } catch (error) {
@@ -26,8 +26,7 @@ export const getAgendas = async (req: AuthenticatedRequest, res: Response): Prom
   }
 };
 
-
-// Cria agenda com geração via IA
+// POST create agenda via AI
 export const createAgendaViaAI = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
   try {
     const userId = req.user?._id;
@@ -47,8 +46,6 @@ export const createAgendaViaAI = async (req: AuthenticatedRequest, res: Response
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
 
-    // Limites de agendas podem ser controlados por plano se quiser
-    // Aqui só um exemplo simples:
     const totalAgendas = await Agenda.countDocuments({ userId });
     let maxAgendas = 0;
     switch (user.subscription) {
@@ -69,27 +66,91 @@ export const createAgendaViaAI = async (req: AuthenticatedRequest, res: Response
       return res.status(403).json({ message: `Limite de agendas excedido para seu plano (${user.subscription}).` });
     }
 
-    // Gera a agenda via IA
     const agendaGerada = await gerarAgendaComIA(prompt);
 
-    if (!agendaGerada || !Array.isArray(agendaGerada.tarefas)) {
+    if (!agendaGerada || !Array.isArray(agendaGerada.eventos)) {
       return res.status(500).json({ message: 'Formato inválido recebido da IA' });
     }
 
-    // Cria o documento completo com nomeAgenda e tarefas
     const novaAgenda = new Agenda({
       userId,
       tenantId,
       nomeAgenda: agendaGerada.nomeAgenda,
-      tarefas: agendaGerada.tarefas,
+      eventos: agendaGerada.eventos,
     });
 
     const salva = await novaAgenda.save();
 
     return res.status(201).json({ message: 'Agenda criada com sucesso', agenda: salva });
-
   } catch (error) {
     console.error('Erro ao criar agenda via IA:', error);
+    return res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+};
+
+// PUT update agenda
+export const updateAgenda = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const userId = req.user?._id;
+    const tenantId = req.user?.tenantId || req.tenantId;
+    const agendaId = req.params.id;
+    const updates = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Usuário não autenticado' });
+    }
+
+    const agenda = await Agenda.findOne({ _id: agendaId, userId, tenantId });
+    if (!agenda) {
+      return res.status(404).json({ message: 'Agenda não encontrada' });
+    }
+
+    if (updates.nomeAgenda !== undefined) {
+      agenda.nomeAgenda = updates.nomeAgenda;
+    }
+    if (updates.tarefas !== undefined) {
+      agenda.eventos = updates.tarefas; // ideal validar aqui
+    }
+
+    await agenda.save();
+
+    return res.status(200).json({ message: 'Agenda atualizada com sucesso', agenda });
+
+  } catch (error) {
+    console.error('Erro ao atualizar agenda:', error);
+    return res.status(500).json({ message: 'Erro interno ao atualizar agenda' });
+  }
+};
+
+interface DeleteAgendaParams {
+  agendaId: string;
+}
+
+// DELETE agenda
+export const deleteAgenda = async (
+  req: AuthenticatedRequest & { params: DeleteAgendaParams },
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.user?._id;
+    const tenantId = req.user?.tenantId || req.tenantId;
+    const { agendaId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Usuário não autenticado' });
+    }
+
+    // Para garantir que o usuário só pode deletar suas agendas:
+    const agenda = await Agenda.findOne({ _id: agendaId, userId, tenantId });
+    if (!agenda) {
+      return res.status(404).json({ message: 'Agenda não encontrada' });
+    }
+
+    await Agenda.findByIdAndDelete(agendaId);
+
+    return res.json({ message: 'Agenda deletada com sucesso' });
+  } catch (error) {
+    console.error('Erro ao deletar agenda:', error);
     return res.status(500).json({ message: 'Erro interno do servidor' });
   }
 };
