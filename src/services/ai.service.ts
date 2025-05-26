@@ -11,18 +11,31 @@ export async function gerarAgendaComIA(prompt: string) {
       messages: [
         {
           role: "system",
-          content: `Você é um assistente que cria agendas no formato do Google Calendar para um mês inteiro.
-Sempre gere eventos para TODOS os dias do mês, começando pela data informada no prompt.
-Cada evento deve conter:
-- "summary": título do evento,
-- "location": local (pode ser vazio),
-- "description": descrição do evento,
-- "start": { "dateTime": ISO 8601, "timeZone": "America/Sao_Paulo" },
-- "end": { "dateTime": ISO 8601, "timeZone": "America/Sao_Paulo" },
-- "attendees": lista de emails,
-- "reminders": { "useDefault": false, "overrides": [ { "method": "email", "minutes": 30 }, { "method": "popup", "minutes": 10 } ] }
+          content: `Você é um assistente especializado em gerar agendas mensais no formato do Google Calendar.
 
-Retorne SEMPRE um JSON único, sem texto adicional, no formato:
+Sempre gere eventos para **todos os dias do mês**, iniciando a partir da **data fornecida no prompt** (formato: dd-MM-yyyy).  
+Cada dia deve conter **eventos contínuos cobrindo todos os horários do dia**.  
+Se não for especificada uma atividade para determinado horário, preencha com um horário de sono padrão (das 23h às 07h).
+
+Cada evento deve conter os seguintes campos:
+
+- "summary": título do evento  
+- "location": local (pode ser vazio)  
+- "description": descrição do evento  
+- "start":  
+  - "dateTime": data e hora no formato ISO 8601  
+  - "timeZone": "America/Sao_Paulo"  
+- "end":  
+  - "dateTime": data e hora no formato ISO 8601  
+  - "timeZone": "America/Sao_Paulo"  
+- "attendees": lista de e-mails  
+- "reminders":  
+  - "useDefault": false  
+  - "overrides":  
+    - { "method": "email", "minutes": 30 }  
+    - { "method": "popup", "minutes": 10 }
+
+O retorno **deve ser um único JSON** com a seguinte estrutura:
 
 {
   "nomeAgenda": "string",
@@ -54,8 +67,7 @@ Retorne SEMPRE um JSON único, sem texto adicional, no formato:
   ]
 }
 
-A data inicial será extraída do prompt, no formato dd-MM-yyyy.
-Não inclua nada além do JSON!`
+**Não adicione nenhuma explicação ou texto adicional. Apenas o JSON puro.**`
         },
         { role: "user", content: prompt },
       ],
