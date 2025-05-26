@@ -9,8 +9,8 @@ router.post('/generate', authenticate, createAgendaViaAI);
 
 router.get('/', authenticate, getAgendas);
 
-router.put('/:id', updateAgenda);
+router.put('/:id',authenticate, updateAgenda);
 
-router.delete('/:Id', deleteAgenda);
+router.delete('/:_id',authenticate, deleteAgenda);
 
 export default router;

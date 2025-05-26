@@ -53,7 +53,7 @@ export const createAgendaViaAI = async (req: AuthenticatedRequest, res: Response
         maxAgendas = Infinity;
         break;
       case 'start':
-        maxAgendas = 5;
+        maxAgendas = Infinity;
         break;
       case 'platinum':
         maxAgendas = Infinity;
@@ -122,31 +122,26 @@ export const updateAgenda = async (req: AuthenticatedRequest, res: Response): Pr
   }
 };
 
-interface DeleteAgendaParams {
-  agendaId: string;
-}
-
 // DELETE agenda
 export const deleteAgenda = async (
-  req: AuthenticatedRequest & { params: DeleteAgendaParams },
+  req: AuthenticatedRequest & { params: { _id: string } },
   res: Response
 ): Promise<any> => {
   try {
-    const userId = req.user?._id;
+    const userId = req.user?.id;
     const tenantId = req.user?.tenantId || req.tenantId;
-    const { agendaId } = req.params;
+    const { _id } = req.params;
 
     if (!userId) {
       return res.status(401).json({ message: 'Usuário não autenticado' });
     }
 
-    // Para garantir que o usuário só pode deletar suas agendas:
-    const agenda = await Agenda.findOne({ _id: agendaId, userId, tenantId });
+    const agenda = await Agenda.findOne({ _id: _id, userId, tenantId });
     if (!agenda) {
       return res.status(404).json({ message: 'Agenda não encontrada' });
     }
 
-    await Agenda.findByIdAndDelete(agendaId);
+    await Agenda.findByIdAndDelete(_id);
 
     return res.json({ message: 'Agenda deletada com sucesso' });
   } catch (error) {
@@ -154,3 +149,4 @@ export const deleteAgenda = async (
     return res.status(500).json({ message: 'Erro interno do servidor' });
   }
 };
+
